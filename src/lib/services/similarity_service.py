@@ -92,8 +92,12 @@ class SimilarityService:
         # 3. Extraer el embedding
         with torch.no_grad():
             embedding = self._baseline_model(input_tensor)
+            # Normalización L2 para asegurar que la norma sea 1, 
+            # haciendo que la similitud del coseno sea equivalente al producto punto
+            import torch.nn.functional as F
+            embedding = F.normalize(embedding, p=2, dim=1)
 
-        # 4. Convertir el tensor (1, 512) a una lista de floats y retornar
+        # 4. Convertir el tensor a una lista de floats y retornar
         return embedding.squeeze().cpu().tolist()
 
     def search_similar_images(self, embedding: list[float], top_k: int) -> list[Neighbor]:
