@@ -67,10 +67,10 @@ class SimilarityService:
 
         # Cargamos el modelo la primera vez que se ejecuta y lo guardamos en el objeto (lazy loading).
         if not hasattr(self, "_baseline_model"):
-            weights = models.ResNet50_Weights.IMAGENET1K_V1
-            model = models.resnet50(weights=weights)
-            # Reemplazamos la capa final por una capa Lineal para proyectar de 2048 a 512 dimensiones
-            model.fc = torch.nn.Linear(2048, 512)
+            weights = models.ResNet34_Weights.IMAGENET1K_V1
+            model = models.resnet34(weights=weights)
+            # Reemplazamos la capa final por Identity para mantener 512 dimensiones
+            model.fc = torch.nn.Identity()
             model.eval()
             self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self._baseline_model = model.to(self._device)
