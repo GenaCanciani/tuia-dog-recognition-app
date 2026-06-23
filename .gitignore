@@ -16,3 +16,4 @@ data/dataset/*
 !data/dataset/.gitkeep
 runs/
 .DS_Store
+requirementsGPU.txt

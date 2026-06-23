@@ -8,6 +8,9 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
+import torch
+import torch.nn.functional as F
+from torchvision import models, transforms
 
 from lib.schemas import EmbeddingRecord, Neighbor, SearchResult
 from lib.storage.base import EmbeddingStoreProtocol
@@ -62,9 +65,6 @@ class SimilarityService:
         ImageNet (ej: ResNet50, EfficientNet, ConvNeXt) sin la capa de
         clasificacion final.
         """
-        import torch
-        from torchvision import models, transforms
-
         # Cargamos el modelo la primera vez que se ejecuta y lo guardamos en el objeto (lazy loading).
         if not hasattr(self, "_baseline_model"):
             weights = models.ResNet34_Weights.IMAGENET1K_V1
@@ -92,9 +92,6 @@ class SimilarityService:
         # 3. Extraer el embedding
         with torch.no_grad():
             embedding = self._baseline_model(input_tensor)
-            # Normalización L2 para asegurar que la norma sea 1, 
-            # haciendo que la similitud del coseno sea equivalente al producto punto
-            import torch.nn.functional as F
             embedding = F.normalize(embedding, p=2, dim=1)
 
         # 4. Convertir el tensor a una lista de floats y retornar

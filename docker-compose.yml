@@ -13,6 +13,7 @@ services:
       - ./models:/app/models
       - ./output:/app/output
       - ./data:/app/data
+      - ./scripts:/app/scripts # Volumen para scripts de indexado
     depends_on:
       postgres:
         condition: service_healthy
