@@ -40,7 +40,6 @@ def main() -> None:
     from lib.config import settings
 
     store = build_store(settings)
-    store.delete_by_model(settings.embedding_model)
     similarity = build_similarity(settings, store)
 
     if settings.embedding_model == "baseline":
@@ -72,7 +71,6 @@ def main() -> None:
             total += 1
         print(f"{breed_dir.name}: {count} imagenes indexadas")
 
-    store.flush()
     print(f"Total: {total} embeddings almacenados (modelo: {settings.embedding_model})")
 
 

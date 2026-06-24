@@ -8,9 +8,6 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
-import torch
-import torch.nn.functional as F
-from torchvision import models, transforms
 
 from lib.schemas import EmbeddingRecord, Neighbor, SearchResult
 from lib.storage.base import EmbeddingStoreProtocol
@@ -65,6 +62,9 @@ class SimilarityService:
         ImageNet (ej: ResNet50, EfficientNet, ConvNeXt) sin la capa de
         clasificacion final.
         """
+        import torch
+        from torchvision import models, transforms
+
         # Cargamos el modelo la primera vez que se ejecuta y lo guardamos en el objeto (lazy loading).
         if not hasattr(self, "_baseline_model"):
             weights = models.ResNet34_Weights.IMAGENET1K_V1
@@ -92,17 +92,19 @@ class SimilarityService:
         # 3. Extraer el embedding
         with torch.no_grad():
             embedding = self._baseline_model(input_tensor)
+            # Normalización L2 para asegurar que la norma sea 1, 
+            # haciendo que la similitud del coseno sea equivalente al producto punto
+            import torch.nn.functional as F
             embedding = F.normalize(embedding, p=2, dim=1)
 
         # 4. Convertir el tensor a una lista de floats y retornar
         return embedding.squeeze().cpu().tolist()
 
-    def search_similar_images(self, embedding: list[float], top_k: int, model: str | None = None) -> list[Neighbor]:
+    def search_similar_images(self, embedding: list[float], top_k: int) -> list[Neighbor]:
         """
         Recupera de la base vectorial las top_k imagenes mas similares.
-        `model` permite filtrar por modelo de embeddings (baseline, resnet18_finetuned, cnn_custom).
         """
-        records = self.store.search(embedding, k=top_k, model=model)
+        records = self.store.search(embedding, k=top_k)
         neighbors = []
         for r in records:
             score = self.similarity(embedding, r.embedding)
@@ -200,8 +202,7 @@ class SimilarityService:
         embedding = extractor(image)
 
         k = int(top_k) if top_k else self.top_k
-        model_for_search = model_name or self.model_name
-        neighbors = [self._with_url(n) for n in self.search_similar_images(embedding, k, model=model_for_search)]
+        neighbors = [self._with_url(n) for n in self.search_similar_images(embedding, k)]
         breed, score = self.predict_breed_from_neighbors(neighbors)
         logger.info("Predicted breed: %s (score=%.4f) for %s", breed, score, source_path)
 
