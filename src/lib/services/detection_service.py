@@ -7,6 +7,10 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
+import torch
+import torch.nn as nn
+from torchvision import datasets, transforms
+from ultralytics import YOLO
 
 from lib.schemas import ClassifyResult, DetectResult, DogDetection
 from lib.services.classifier_service import ClassifierService
@@ -36,6 +40,8 @@ class DetectionService:
         self.yolo_model_name = yolo_model
         self.conf_threshold = conf_threshold
         self.dog_class_id = dog_class_id
+        self._yolo: YOLO | None = None
+        self._class_names: list[str] | None = None
 
     @staticmethod
     def _clip_xyxy(
@@ -63,28 +69,40 @@ class DetectionService:
     # ------------------------------------------------------------------
 
     def detect_dogs(self, image: np.ndarray) -> list[tuple[tuple[int, int, int, int], float]]:
-        """
-        Detecta todos los perros presentes en la imagen usando un modelo YOLO
-        pre-entrenado (ej: YOLOv8n via ultralytics). No es necesario entrenar
-        el detector.
-
-        Sugerencias:
-          - self.yolo_model_name, self.conf_threshold y self.dog_class_id
-            (clase 'dog' = 16 en COCO) vienen de la configuracion (.env).
-          - Debe funcionar con un perro, multiples perros y escenas complejas.
-
-        Retorna una lista de ((x1, y1, x2, y2), confidence) en pixeles.
-        """
-        raise NotImplementedError("Etapa 3: implementar detect_dogs")
+        if self._yolo is None:
+            self._yolo = YOLO(self.yolo_model_name)
+        results = self._yolo(image, conf=self.conf_threshold, verbose=False)[0]
+        detections: list[tuple[tuple[int, int, int, int], float]] = []
+        if results.boxes is not None:
+            for box, cls_id, conf in zip(results.boxes.xyxy, results.boxes.cls, results.boxes.conf):
+                if int(cls_id) == self.dog_class_id:
+                    x1, y1, x2, y2 = map(int, box.tolist())
+                    detections.append(((x1, y1, x2, y2), float(conf)))
+        return detections
 
     def classify_detected_dog(self, crop: np.ndarray) -> tuple[str, float]:
-        """
-        Clasifica la raza del recorte de un perro detectado usando el modelo
-        entrenado en la Etapa 2 (self.classifier.load_model()).
-
-        El recorte llega en BGR (OpenCV). Retorna (raza, score).
-        """
-        raise NotImplementedError("Etapa 3: implementar classify_detected_dog")
+        if self._class_names is None:
+            ds = datasets.ImageFolder(str(self.classifier.dataset_path / "train"))
+            self._class_names = ds.classes
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = self.classifier.load_model()
+        if isinstance(model, nn.Module):
+            model = model.to(device)
+            model.eval()
+        else:
+            raise ValueError("classify_detected_dog no soporta ONNX")
+        transform = transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize((self.classifier.image_size, self.classifier.image_size)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ])
+        input_tensor = transform(crop).unsqueeze(0).to(device)
+        with torch.no_grad():
+            outputs = model(input_tensor)
+            probs = torch.softmax(outputs, dim=1)
+            score, idx = torch.max(probs, 1)
+        return self._class_names[idx.item()], float(score.item())
 
     # ------------------------------------------------------------------
     # Orquestacion provista

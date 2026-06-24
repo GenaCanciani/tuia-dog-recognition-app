@@ -17,3 +17,4 @@ data/dataset/*
 runs/
 .DS_Store
 requirementsGPU.txt
+data/embeddings.json
