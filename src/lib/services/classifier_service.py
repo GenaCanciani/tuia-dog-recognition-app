@@ -130,6 +130,13 @@ class ClassifierService:
             raise ValueError(f"Unknown model: {self.active_model_name}")
         return model
 
+    def _add_gaussian_noise(self, tensor: torch.Tensor) -> torch.Tensor:
+        if torch.rand(1).item() < 0.5:
+            sigma = torch.empty(1).uniform_(0.01, 0.05).item()
+            noise = torch.randn_like(tensor) * sigma
+            tensor = tensor + noise
+        return tensor
+
     def _get_transforms(self, augment: bool = False) -> transforms.Compose:
         pipeline = [
             transforms.Resize((self.image_size, self.image_size)),
@@ -139,11 +146,14 @@ class ClassifierService:
                 transforms.RandomHorizontalFlip(p=0.5),
                 transforms.RandomRotation(degrees=15),
                 transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+                transforms.GaussianBlur(kernel_size=3, sigma=(0.1, 1.0)),
             ])
         pipeline.extend([
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
         ])
+        if augment:
+            pipeline.append(transforms.Lambda(self._add_gaussian_noise))
         return transforms.Compose(pipeline)
 
     # ------------------------------------------------------------------
@@ -185,6 +195,13 @@ class ClassifierService:
 
         epochs = 15
         best_loss = float("inf")
+
+        self._train_history = {
+            "train_loss": [],
+            "train_acc": [],
+            "valid_loss": [],
+            "valid_acc": [],
+        }
 
         for epoch in range(1, epochs + 1):
             model.train()
@@ -229,6 +246,11 @@ class ClassifierService:
                 "Epoch %2d/%d — train_loss=%.4f train_acc=%.4f — valid_loss=%.4f valid_acc=%.4f",
                 epoch, epochs, train_loss, train_acc, valid_loss, valid_acc,
             )
+
+            self._train_history["train_loss"].append(train_loss)
+            self._train_history["train_acc"].append(train_acc)
+            self._train_history["valid_loss"].append(valid_loss)
+            self._train_history["valid_acc"].append(valid_acc)
 
             if valid_loss < best_loss:
                 best_loss = valid_loss
@@ -286,6 +308,10 @@ class ClassifierService:
             recalls.append(rec)
             specificities.append(spec)
             f1s.append(f1)
+
+        self._eval_preds = all_preds
+        self._eval_labels = all_labels
+        self._eval_classes = test_ds.classes
 
         metrics = {
             "accuracy": round(accuracy, 4),
