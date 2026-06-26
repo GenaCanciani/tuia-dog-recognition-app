@@ -17,4 +17,9 @@ data/dataset/*
 runs/
 .DS_Store
 requirementsGPU.txt
-consignas.txt
+.agents
+skills-lock.json
+pyproject.toml
+.python-version
+uv.lock
+colab_upload*
