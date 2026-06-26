@@ -15,9 +15,7 @@ load_dotenv()
 API_BASE = os.environ.get("BACKEND_URL", "http://127.0.0.1:8000").rstrip("/")
 MODEL_CHOICES = [
     m.strip()
-    for m in os.environ.get(
-        "MODEL_CHOICES", "baseline,resnet18_finetuned,cnn_custom"
-    ).split(",")
+    for m in os.environ.get("MODEL_CHOICES", "baseline").split(",")
     if m.strip()
 ]
 CLASSIFIER_CHOICES = [m for m in MODEL_CHOICES if m != "baseline"] or [

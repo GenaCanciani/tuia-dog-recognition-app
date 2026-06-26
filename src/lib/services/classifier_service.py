@@ -323,36 +323,4 @@ class ClassifierService:
         logger.info("Métricas: %s", metrics)
         return metrics
 
-    def extract_custom_embedding(self, image: np.ndarray) -> list[float]:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = self.load_model()
-        if isinstance(model, onnxruntime.InferenceSession):
-            raise ValueError("extract_custom_embedding no soporta ONNX")
-        model = model.to(device)
-        model.eval()
-
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        transform = transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((self.image_size, self.image_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ])
-        input_tensor = transform(image_rgb).unsqueeze(0).to(device)
-
-        features: list[torch.Tensor] = []
-        def hook_fn(_module: nn.Module, _inp: object, out: torch.Tensor) -> None:
-            features.append(out.detach().flatten(start_dim=1))
-
-        if self.active_model_name == "resnet18_finetuned":
-            handle = model.avgpool.register_forward_hook(hook_fn)
-        else:
-            handle = model.features.register_forward_hook(hook_fn)
-
-        with torch.no_grad():
-            _ = model(input_tensor)
-
-        handle.remove()
-        embedding = F.normalize(features[0], p=2, dim=1)
-
-        return embedding.squeeze().cpu().tolist()
+    # ponytail: extract_custom_embedding removed — removed from definitive consignas by catedra.
