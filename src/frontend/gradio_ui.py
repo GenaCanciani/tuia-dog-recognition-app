@@ -177,19 +177,59 @@ def _render_search(data: dict[str, Any], source_image_url: str | None, links_md:
     pretty = json.dumps(data, ensure_ascii=False, indent=2)
     return query_rgb, gallery, pretty, extra, "**Estado:** completado (busqueda por similitud)."
 
+def make_ascii_bar_chart(probs: list[dict[str, Any]] | None) -> str:
+    if not probs:
+        return ""
+    lines = ["\n\n### Distribución de Confianza (Top-5):"]
+    for item in probs:
+        breed = item.get("breed", "?")
+        score = item.get("score", 0.0)
+        percentage = int(score * 100)
+        filled = int(score * 20)
+        bar = "█" * filled + "░" * (20 - filled)
+        lines.append(f"- **{breed}**: `{bar}` {percentage}%")
+    return "\n".join(lines)
+
 
 def _render_classify(data: dict[str, Any], source_image_url: str | None, links_md: str):
-    img_bgr = _download_image(source_image_url)
+    gcam_url = data.get("gradcam_url")
+    if gcam_url:
+        gcam_abs = _abs_url(gcam_url)
+        if gcam_abs:
+            links_md += f"\n- [Ver Mapa de Calor (Grad-CAM)]({gcam_abs})"
+
+    display_url = gcam_url if gcam_url else source_image_url
+    img_bgr = _download_image(display_url)
     img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB) if img_bgr is not None else None
+
+    gallery = []
+    if gcam_url and img_rgb is not None:
+        orig_bgr = _download_image(source_image_url)
+        if orig_bgr is not None:
+            orig_rgb = cv2.cvtColor(orig_bgr, cv2.COLOR_BGR2RGB)
+            gallery.append((orig_rgb, "Imagen Origen"))
+        gallery.append((img_rgb, "Mapa de Calor (Grad-CAM)"))
+
     breed = data.get("breed", "?")
     score = data.get("score", 0.0)
     model = data.get("model", "?")
+    
+    ood_prefix = ""
+    if data.get("ood_detected"):
+        ood_score = data.get("ood_score", 0.0)
+        ood_prefix = f"> ⚠️ **¡ADVERTENCIA OOD!** Esta imagen fue clasificada como Fuera de Distribución (posiblemente no es un perro). Score de anomalía: **{ood_score:.2f}**.\n\n"
+
+    top_5_md = make_ascii_bar_chart(data.get("top_5"))
+
     extra = (
+        f"{ood_prefix}"
         f"**Raza predicha:** {breed} (score: {score})\n\n"
-        f"**Modelo entrenado:** `{model}`\n\n{links_md}"
+        f"**Modelo entrenado:** `{model}`\n\n"
+        f"{links_md}"
+        f"{top_5_md}"
     )
     pretty = json.dumps(data, ensure_ascii=False, indent=2)
-    return img_rgb, [], pretty, extra, "**Estado:** completado (clasificacion supervisada)."
+    return img_rgb, gallery, pretty, extra, "**Estado:** completado (clasificacion supervisada)."
 
 
 def _render_detect(data: dict[str, Any], source_image_url: str | None, links_md: str):
@@ -198,10 +238,40 @@ def _render_detect(data: dict[str, Any], source_image_url: str | None, links_md:
         pretty = json.dumps(data, ensure_ascii=False, indent=2)
         return None, [], pretty, links_md, "**Estado:** completado; no se decodifico la imagen origen."
     vis = draw_detections_on_bgr(img_bgr, data)
+
+    gallery = []
+    for idx, det in enumerate(data.get("detections", [])):
+        gc_url = det.get("gradcam_url")
+        if gc_url:
+            gc_bgr = _download_image(gc_url)
+            if gc_bgr is not None:
+                gc_rgb = cv2.cvtColor(gc_bgr, cv2.COLOR_BGR2RGB)
+                breed = det.get("breed", "?")
+                gallery.append((gc_rgb, f"Perro {idx+1}: {breed} (Grad-CAM)"))
+
     breeds = ", ".join(data.get("detected_breeds") or []) or "(ninguna)"
-    extra = f"**Razas detectadas:** {breeds}\n\n{links_md}"
+    
+    ood_prefix = ""
+    if data.get("ood_detected"):
+        ood_score = data.get("ood_score", 0.0)
+        ood_prefix = f"> ⚠️ **¡ADVERTENCIA OOD!** La imagen general fue clasificada como Fuera de Distribución (posiblemente no es un perro). Score de anomalía: **{ood_score:.2f}**.\n\n"
+
+    detections_md = ""
+    for idx, det in enumerate(data.get("detections", [])):
+        breed = det.get("breed", "?")
+        score = det.get("breed_score", 0.0)
+        top_5 = det.get("top_5")
+        chart = make_ascii_bar_chart(top_5)
+        detections_md += f"\n---\n#### Perro {idx+1}: {breed} (score: {score}){chart}"
+
+    extra = (
+        f"{ood_prefix}"
+        f"**Razas detectadas:** {breeds}\n\n"
+        f"{links_md}"
+        f"{detections_md}"
+    )
     pretty = json.dumps(data, ensure_ascii=False, indent=2)
-    return vis, [], pretty, extra, "**Estado:** completado (deteccion y clasificacion)."
+    return vis, gallery, pretty, extra, "**Estado:** completado (deteccion y clasificacion)."
 
 
 def consult_status(job_id: str) -> tuple[np.ndarray | None, list, str, str, str]:

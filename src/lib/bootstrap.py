@@ -74,12 +74,19 @@ def build_similarity(
     )
 
 
-def build_detection(settings: Settings, classifier: ClassifierService) -> DetectionService:
+def build_detection(
+    settings: Settings,
+    classifier: ClassifierService,
+    url_resolver: Optional[UrlResolver] = None,
+    similarity: Optional[SimilarityService] = None,
+) -> DetectionService:
     return DetectionService(
         classifier=classifier,
         yolo_model=settings.yolo_model,
         conf_threshold=settings.yolo_conf_threshold,
         dog_class_id=settings.yolo_dog_class_id,
+        url_resolver=url_resolver,
+        similarity=similarity,
     )
 
 
@@ -90,7 +97,7 @@ def build_services(
     store = build_store(settings)
     classifier = build_classifier(settings)
     similarity = build_similarity(settings, store, url_resolver)
-    detection = build_detection(settings, classifier)
+    detection = build_detection(settings, classifier, url_resolver, similarity=similarity)
     return ServiceContainer(
         store=store,
         similarity=similarity,

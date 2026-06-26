@@ -63,6 +63,11 @@ class ClassifyResult(BaseModel):
     model: str
     breed: str
     score: float
+    gradcam_path: Optional[str] = None
+    gradcam_url: Optional[str] = None
+    ood_detected: Optional[bool] = None
+    ood_score: Optional[float] = None
+    top_5: Optional[list[dict[str, Any]]] = None
 
 
 class DetectRequest(BaseModel):
@@ -76,6 +81,9 @@ class DogDetection(BaseModel):
     det_score: float
     breed: str
     breed_score: float
+    gradcam_path: Optional[str] = None
+    gradcam_url: Optional[str] = None
+    top_5: Optional[list[dict[str, Any]]] = None
 
 
 class DetectResult(BaseModel):
@@ -85,6 +93,8 @@ class DetectResult(BaseModel):
     source_path: str
     detections: list[DogDetection]
     detected_breeds: list[str]
+    ood_detected: Optional[bool] = None
+    ood_score: Optional[float] = None
 
 
 class AsyncTaskCreated(BaseModel):
