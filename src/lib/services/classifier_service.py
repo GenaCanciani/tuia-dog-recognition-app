@@ -323,4 +323,3 @@ class ClassifierService:
         logger.info("Métricas: %s", metrics)
         return metrics
 
-    # ponytail: extract_custom_embedding removed — removed from definitive consignas by catedra.
