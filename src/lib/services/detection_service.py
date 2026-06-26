@@ -81,6 +81,7 @@ class DetectionService:
         return detections
 
     def classify_detected_dog(self, crop: np.ndarray) -> tuple[str, float]:
+        crop = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
         if self._class_names is None:
             ds = datasets.ImageFolder(str(self.classifier.dataset_path / "train"))
             self._class_names = ds.classes
