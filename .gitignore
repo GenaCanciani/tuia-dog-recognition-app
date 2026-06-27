@@ -16,3 +16,11 @@ data/dataset/*
 !data/dataset/.gitkeep
 runs/
 .DS_Store
+requirementsGPU.txt
+.agents
+skills-lock.json
+pyproject.toml
+.python-version
+uv.lock
+colab_upload*
+consignas.txt

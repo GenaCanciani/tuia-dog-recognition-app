@@ -1,7 +1,6 @@
 """Construye la base vectorial indexando el dataset con extract_embedding (Etapa 1).
 
-Requiere haber implementado SimilarityService.extract_embedding (o, si
-EMBEDDING_MODEL != baseline, ClassifierService.extract_custom_embedding).
+Requiere SimilarityService.extract_embedding implementada (baseline pre-entrenado).
 Si USE_PGVECTOR=true, la base de datos debe estar corriendo
 (`docker compose up postgres -d`).
 
@@ -36,19 +35,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    from lib.bootstrap import build_classifier, build_similarity, build_store
+    from lib.bootstrap import build_similarity, build_store
     from lib.config import settings
 
     store = build_store(settings)
     similarity = build_similarity(settings, store)
 
-    if settings.embedding_model == "baseline":
-        extractor = similarity.extract_embedding
-    else:
-        classifier = build_classifier(settings)
-        classifier.set_active_model(settings.embedding_model)
-        extractor = classifier.extract_custom_embedding
-    similarity.extract_embedding = extractor  # type: ignore[method-assign]
+    # Etapa 1 usa modelo pre-entrenado en ImageNet (baseline) — extract_custom_embedding removida de consignas
 
     root = settings.dataset_path / args.split
     if not root.is_dir():

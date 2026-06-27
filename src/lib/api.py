@@ -44,21 +44,17 @@ similarity_service = services.similarity
 classifier_service = services.classifier
 detection_service = services.detection
 
-EMBEDDING_MODELS = ("baseline", "resnet18_finetuned", "cnn_custom")
+EMBEDDING_MODELS = ("baseline",)
 CLASSIFIER_MODELS = ("resnet18_finetuned", "cnn_custom")
 
 
 def _embedding_extractor(model_name: str):
-    """Seleccion dinamica del modelo de embeddings (integracion de la Etapa 2)."""
     if model_name not in EMBEDDING_MODELS:
         raise HTTPException(
             status_code=400,
             detail=f"Unknown model '{model_name}'. Expected one of: {EMBEDDING_MODELS}",
         )
-    if model_name == "baseline":
-        return similarity_service.extract_embedding
-    classifier_service.set_active_model(model_name)
-    return classifier_service.extract_custom_embedding
+    return similarity_service.extract_embedding
 
 
 def _urls_for_status(link: str) -> tuple[str | None, str | None]:

@@ -6,3 +6,4 @@ models
 data/dataset
 runs
 *.ipynb
+requirementsGPU.txt

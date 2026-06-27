@@ -23,15 +23,30 @@ def safe_file_under(root: Path, relpath: str) -> Path:
 
 
 def file_to_public_url(path: Path, roots: Iterable[tuple[Path, str]]) -> str | None:
-    """Mapea un path local a una URL publica si cae bajo alguno de los roots servidos."""
+    """Mapea un path local a una URL publica si cae bajo alguno de los roots servidos.
+
+    Incluye un fallback por sufijo para paths indexados en un entorno distinto
+    al que corre el servidor (ej: indexado local, servidor en Docker).
+    """
     try:
         p = Path(path).resolve()
     except OSError:
-        return None
+        p = None
+    # Intento estricto: relative_to con paths resueltos
+    if p is not None:
+        for base, prefix in roots:
+            try:
+                rel = p.relative_to(Path(base).resolve())
+                return f"{prefix}/{rel.as_posix()}"
+            except ValueError:
+                continue
+    # Fallback: buscar el nombre del directorio raiz como componente en el path
+    path_posix = Path(path).as_posix()
     for base, prefix in roots:
-        try:
-            rel = p.relative_to(Path(base).resolve())
-            return f"{prefix}/{rel.as_posix()}"
-        except ValueError:
-            continue
+        base_name = Path(base).name  # ej: "data", "output"
+        marker = f"/{base_name}/"
+        idx = path_posix.find(marker)
+        if idx != -1:
+            rel = path_posix[idx + len(marker):]
+            return f"{prefix}/{rel}"
     return None
